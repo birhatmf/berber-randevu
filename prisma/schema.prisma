@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  email        String   @unique
+  passwordHash String
+  role         String   @default("barber") // admin | barber
+  title        String?
+  bio          String?
+  photo        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  workHours    WorkHours[]
+  appointments Appointment[]
+}
+
+model Service {
+  id          String @id @default(cuid())
+  name        String
+  durationMin Int
+  price       Int // kuruş
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  appointments Appointment[]
+}
+
+model WorkHours {
+  id        String @id @default(cuid())
+  barberId  String
+  barber    User   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  weekday   Int // 0 = Pazar
+  startMin  Int
+  endMin    Int
+
+  @@index([barberId, weekday])
+}
+
+model Appointment {
+  id            String    @id @default(cuid())
+  barberId      String
+  barber        User      @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  serviceId     String?
+  service       Service?  @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String
+  start         DateTime
+  end           DateTime
+  status        String    @default("confirmed") // confirmed | done | no_show | cancelled
+  type          String    @default("appointment") // appointment | block
+  source        String    @default("manual") // online | walkin | manual
+  note          String?
+  reminder24At  DateTime?
+  reminder2At   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([barberId, start])
+  @@index([customerPhone, start])
+  @@index([start])
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  mime      String
+  bytes     Bytes
+  createdAt DateTime @default(now())
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
