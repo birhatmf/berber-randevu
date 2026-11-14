@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { MEDIA_KEYS, VIDEO_KEYS, isSettingKey, type SettingKey } from "@/lib/settings";
+import { deleteMediaIfUnreferenced, mediaIdFromUrl, mediaUrl, saveMedia } from "@/lib/media";
 import type { ActionState } from "./types";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -64,16 +65,18 @@ export async function uploadSettingImage(key: string, formData: FormData): Promi
   const invalid = validateMedia(key as SettingKey, file);
   if (invalid) return { error: invalid };
 
-  const media = await db.media.create({
-    data: { mime: file.type, bytes: Buffer.from(await file.arrayBuffer()) },
-  });
-  const url = `/api/media/${media.id}`;
+  const previous = await db.setting.findUnique({ where: { key } });
+  const media = await saveMedia(file);
+  const url = mediaUrl(media);
 
   await db.setting.upsert({
     where: { key },
     update: { value: url },
     create: { key, value: url },
   });
+
+  const previousId = mediaIdFromUrl(previous?.value);
+  if (previousId && previousId !== media.id) await deleteMediaIfUnreferenced(previousId);
 
   revalidatePath("/");
   revalidatePath("/panel/site");
@@ -96,22 +99,29 @@ export async function uploadBarberPhoto(formData: FormData): Promise<ActionState
   const barber = await db.user.findUnique({ where: { id: barberId } });
   if (!barber || barber.role !== "barber") return { error: "Berber bulunamadı." };
 
-  const media = await db.media.create({
-    data: { mime: file.type, bytes: Buffer.from(await file.arrayBuffer()) },
-  });
+  const media = await saveMedia(file);
+  const url = mediaUrl(media);
 
-  await db.user.update({ where: { id: barberId }, data: { photo: `/api/media/${media.id}` } });
+  const previousId = mediaIdFromUrl(barber.photo);
+  await db.user.update({ where: { id: barberId }, data: { photo: url } });
+  if (previousId && previousId !== media.id) await deleteMediaIfUnreferenced(previousId);
 
   revalidatePath("/");
   revalidatePath("/panel/berberler");
-  return { ok: true, message: "Fotoğraf yüklendi.", url: `/api/media/${media.id}` };
+  return { ok: true, message: "Fotoğraf yüklendi.", url };
 }
 
 export async function clearBarberPhoto(barberId: string): Promise<ActionState> {
   const user = await requireAdmin();
   if (!user) return { error: "Yetkiniz yok." };
 
+  const barber = await db.user.findUnique({ where: { id: barberId } });
+  if (!barber) return { error: "Berber bulunamadı." };
+
+  const previousId = mediaIdFromUrl(barber.photo);
   await db.user.update({ where: { id: barberId }, data: { photo: null } });
+  if (previousId) await deleteMediaIfUnreferenced(previousId);
+
   revalidatePath("/");
   revalidatePath("/panel/berberler");
   return { ok: true, message: "Fotoğraf kaldırıldı." };
@@ -122,7 +132,12 @@ export async function clearSettingImage(key: string): Promise<ActionState> {
   if (!user) return { error: "Yetkiniz yok." };
   if (!MEDIA_KEYS.includes(key as SettingKey)) return { error: "Geçersiz medya alanı." };
 
+  const previous = await db.setting.findUnique({ where: { key } });
+  const previousId = mediaIdFromUrl(previous?.value);
+
   await db.setting.upsert({ where: { key }, update: { value: "" }, create: { key, value: "" } });
+  if (previousId) await deleteMediaIfUnreferenced(previousId);
+
   revalidatePath("/");
   revalidatePath("/panel/site");
   return { ok: true, message: "Kaldırıldı." };
@@ -147,12 +162,10 @@ export async function addGalleryImages(_prev: ActionState, formData: FormData): 
   if (count + files.length > 80) return { error: "Galeri doldu (en fazla 80 fotoğraf)." };
 
   for (const [index, file] of files.entries()) {
-    const media = await db.media.create({
-      data: { mime: file.type, bytes: Buffer.from(await file.arrayBuffer()) },
-    });
+    const media = await saveMedia(file);
     await db.galleryImage.create({
       data: {
-        url: `/api/media/${media.id}`,
+        url: mediaUrl(media),
         alt: file.name.replace(/\.[^.]+$/, ""),
         sortOrder: count + index,
       },
@@ -170,7 +183,14 @@ export async function deleteGalleryImage(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
+  const image = await db.galleryImage.findUnique({ where: { id } });
+  if (!image) return;
+
   await db.galleryImage.delete({ where: { id } }).catch(() => null);
+
+  const mediaId = mediaIdFromUrl(image.url);
+  if (mediaId) await deleteMediaIfUnreferenced(mediaId);
+
   revalidatePath("/");
   revalidatePath("/panel/galeri");
 }

@@ -347,3 +347,44 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
   revalidatePath("/panel/site");
   return { ok: true, message: "Kaydedildi." };
 }
+
+const passwordSchema = z
+  .object({
+    current: z.string().min(1, "Mevcut şifreyi girin."),
+    next: z.string().min(8, "Yeni şifre en az 8 karakter olmalı.").max(72),
+    confirm: z.string().min(1, "Yeni şifreyi tekrar girin."),
+  })
+  .refine((data) => data.next === data.confirm, {
+    message: "Yeni şifreler eşleşmiyor.",
+    path: ["confirm"],
+  });
+
+export async function changeOwnPassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let user;
+  try {
+    user = await guard();
+  } catch {
+    return { error: "Oturum bulunamadı." };
+  }
+
+  const parsed = passwordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Alanları kontrol edin." };
+  }
+
+  const account = await db.user.findUnique({ where: { id: user.id } });
+  if (!account) return { error: "Kullanıcı bulunamadı." };
+
+  const valid = await bcrypt.compare(parsed.data.current, account.passwordHash);
+  if (!valid) return { error: "Mevcut şifre hatalı." };
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await bcrypt.hash(parsed.data.next, 10) },
+  });
+
+  return { ok: true, message: "Şifreniz güncellendi." };
+}

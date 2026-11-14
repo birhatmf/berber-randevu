@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { db } from "@/lib/db";
+import { mediaFilePath } from "@/lib/media";
 
 const CACHE = "public, max-age=31536000, immutable";
 
@@ -6,11 +8,20 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  const { id: raw } = await params;
+  const id = raw.replace(/\.[^.]+$/, "");
+
   const media = await db.media.findUnique({ where: { id } });
   if (!media) return new Response("Bulunamadı.", { status: 404 });
 
-  const bytes = new Uint8Array(media.bytes);
+  let file: Buffer;
+  try {
+    file = await readFile(mediaFilePath(media));
+  } catch {
+    return new Response("Bulunamadı.", { status: 404 });
+  }
+
+  const bytes = new Uint8Array(file);
   const headers = {
     "Content-Type": media.mime,
     "Accept-Ranges": "bytes",

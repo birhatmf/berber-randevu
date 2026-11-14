@@ -12,6 +12,7 @@ import {
   Scissors,
   SignOut,
   Storefront,
+  User,
   Users,
   WhatsappLogo,
 } from "@/components/icons";
@@ -34,6 +35,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           { href: "/panel/ayarlar", label: "Ayarlar", icon: <Gear size={18} weight="bold" /> },
         ]
       : []),
+    { href: "/panel/hesap", label: "Hesap", icon: <User size={18} weight="bold" /> },
   ];
 
   return (

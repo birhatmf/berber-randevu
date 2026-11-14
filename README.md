@@ -47,7 +47,7 @@ Sitedeki tüm metinler ve medya `Setting` tablosunda tutulur; `lib/settings.ts` 
 
 **Favicon:** `/panel/ayarlar` → Marka bölümünden yüklenir; boşsa `public/favicon.svg` kullanılır.
 
-**Medya:** Görseller ve video `Media` tablosunda tutulur, `/api/media/<id>` üzerinden servis edilir (byte-range destekli, Safari'de video oynar). Yüklenenler `next build` sonrası da kaybolmaz — dosya sistemi yerine veritabanında durur. Sınırlar: görsel 4 MB (PNG/JPG/WEBP/GIF/AVIF/ICO), video 20 MB.
+**Medya:** Görseller ve video `storage/media/` klasöründe dosya olarak saklanır; `Media` tablosunda yalnızca tür, uzantı ve boyut tutulur. `/api/media/<id>.<uzantı>` üzerinden servis edilir (üretimde nginx doğrudan diskten, byte-range destekli; geliştirmede route diskten okur). Yüklenenler `next build` sonrası da kaybolmaz — `storage/` klasörünü yedeklemeniz yeterlidir, veritabanı küçük kalır. Bir medya değiştirilince/silinince eski dosya otomatik temizlenir. Sınırlar: görsel 4 MB (PNG/JPG/WEBP/GIF/AVIF/ICO), video 20 MB.
 
 **Toplu düzenleme:** `/panel/ayarlar` sayfasında tüm alanlar gruplu form olarak listelenir (marka, ana ekran, bölümler, adımlar, iletişim, randevu kuralları).
 

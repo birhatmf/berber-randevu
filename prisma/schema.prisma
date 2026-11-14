@@ -89,7 +89,8 @@ model Setting {
 model Media {
   id        String   @id @default(cuid())
   mime      String
-  bytes     Bytes
+  ext       String
+  size      Int
   createdAt DateTime @default(now())
 }
 

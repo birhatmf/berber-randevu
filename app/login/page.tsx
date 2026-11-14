@@ -81,13 +81,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 rounded-lg border border-line bg-white p-3 text-xs text-muted">
-            <p className="font-semibold text-stone-600">Demo hesapları</p>
-            <p className="mt-1">Yönetici: admin@berber.local / berber1234</p>
-            <p>Berber: ahmet@berber.local / berber1234</p>
-          </div>
-
-          <Link href="/" className="mt-6 inline-block text-sm text-muted underline-offset-4 hover:underline">
+          <Link href="/" className="mt-8 inline-block text-sm text-muted underline-offset-4 hover:underline">
             ← Ana sayfaya dön
           </Link>
         </div>
