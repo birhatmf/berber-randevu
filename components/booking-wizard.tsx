@@ -77,9 +77,12 @@ export function BookingWizard({
     return (
       <div className="mx-auto max-w-lg text-center">
         <CheckCircle size={52} weight="duotone" className="mx-auto text-emerald-600" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-4xl">Randevun hazır</h1>
+        <h1 className="mt-4 font-display text-4xl">Talebin alındı</h1>
         <p className="mt-2 text-muted">
           {appt.name}, {appt.dateText} · {appt.barber}
+        </p>
+        <p className="mt-1 text-sm text-muted">
+          Randevun onay bekliyor; onaylandığında WhatsApp&apos;tan haber vereceğiz.
         </p>
 
         <div className="card mt-6 space-y-2 p-5 text-left text-sm">

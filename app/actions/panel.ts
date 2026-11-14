@@ -8,6 +8,8 @@ import { auth } from "@/lib/auth";
 import { createAppointment, createBlock, BookingError } from "@/lib/booking";
 import { normalizePhone } from "@/lib/phone";
 import { FIELDS } from "@/lib/settings";
+import { dateTimeOf } from "@/lib/time";
+import { sendBookingConfirmation } from "@/lib/whatsapp";
 import type { ActionState } from "./types";
 
 const STATUSES = ["confirmed", "done", "no_show", "cancelled"] as const;
@@ -31,11 +33,23 @@ export async function setAppointmentStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   if (!STATUSES.includes(status as (typeof STATUSES)[number])) return;
 
-  const appointment = await db.appointment.findUnique({ where: { id } });
+  const appointment = await db.appointment.findUnique({
+    where: { id },
+    include: { barber: { select: { name: true } } },
+  });
   if (!appointment) return;
   if (user.role !== "admin" && appointment.barberId !== user.id) return;
 
   await db.appointment.update({ where: { id }, data: { status } });
+
+  if (status === "confirmed" && appointment.status === "pending" && appointment.customerPhone) {
+    await sendBookingConfirmation(
+      appointment.customerPhone,
+      appointment.barber.name,
+      dateTimeOf(appointment.start),
+    );
+  }
+
   refresh();
 }
 

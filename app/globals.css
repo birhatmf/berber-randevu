@@ -168,6 +168,10 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+  .badge-pending {
+    background: #fffbeb;
+    color: #b45309;
+  }
   .badge-confirmed {
     background: #eef2ff;
     color: #3730a3;

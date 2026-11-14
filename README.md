@@ -62,7 +62,7 @@ Sitedeki tüm metinler ve medya `Setting` tablosunda tutulur; `lib/settings.ts` 
 - Hizmet süresi kapanışa sığmıyorsa o slot üretilmez.
 - Mola/izin = `Appointment(type: "block")`; aynı çakışma sorgusundan geçer.
 - Randevu yazımı transaction içinde çakışmayı tekrar kontrol eder (çift kayıt koruması).
-- Online randevu anında `confirmed` olur; berber `geldi / gelmedi / iptal` işaretler.
+- Online randevu `pending` (onay bekliyor) olarak gelir; panelde onaylanınca `confirmed` olur ve müşteriye WhatsApp onayı gider. Berber `geldi / gelmedi / iptal` işaretler.
 
 ## WhatsApp (opsiyonel)
 
@@ -77,7 +77,7 @@ Anahtar yokken veya “WhatsApp mesajları aktif” kapalıyken mesajlar konsola
 
 | Şablon | Değişkenler | Kullanım |
 |---|---|---|
-| `randevu_onayi` | `{{1}}` berber, `{{2}}` tarih/saat | Randevu oluşturulunca |
+| `randevu_onayi` | `{{1}}` berber, `{{2}}` tarih/saat | Randevu onaylanınca |
 | `randevu_hatirlatma` | `{{1}}` tarih/saat + hizmet + berber | 24 saat ve 2 saat önce |
 | `otp_kodu` | `{{1}}` 6 haneli kod | `/randevum` doğrulaması |
 

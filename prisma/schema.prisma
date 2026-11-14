@@ -56,7 +56,7 @@ model Appointment {
   customerPhone String
   start         DateTime
   end           DateTime
-  status        String    @default("confirmed") // confirmed | done | no_show | cancelled
+  status        String    @default("confirmed") // pending | confirmed | done | no_show | cancelled
   type          String    @default("appointment") // appointment | block
   source        String    @default("manual") // online | walkin | manual
   note          String?

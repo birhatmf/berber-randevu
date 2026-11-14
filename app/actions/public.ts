@@ -8,7 +8,7 @@ import { availableSlots, createAppointment, BookingError } from "@/lib/booking";
 import { normalizePhone } from "@/lib/phone";
 import { signPhone, verifyPhoneProof } from "@/lib/proof";
 import { dateTimeOf, timeOf } from "@/lib/time";
-import { sendBookingConfirmation, sendOtp } from "@/lib/whatsapp";
+import { sendOtp } from "@/lib/whatsapp";
 import type { ActionState } from "./types";
 
 const PROOF_COOKIE = "randevu_proof";
@@ -45,6 +45,7 @@ export async function bookAppointment(_prev: ActionState, formData: FormData): P
       startMin: input.startMin,
       customerName: input.name,
       customerPhone: phone,
+      status: "pending",
       source: "online",
     });
 
@@ -52,10 +53,6 @@ export async function bookAppointment(_prev: ActionState, formData: FormData): P
       where: { id: appointment.id },
       include: { service: true, barber: { select: { name: true } } },
     });
-
-    if (detail) {
-      await sendBookingConfirmation(phone, detail.barber.name, dateTimeOf(detail.start));
-    }
 
     revalidatePath("/panel");
     revalidatePath("/panel/takvim");

@@ -64,6 +64,7 @@ export default async function TodayPage({
 
   const real = items.filter((i) => i.type === "appointment");
   const done = real.filter((i) => i.status === "done").length;
+  const pending = real.filter((i) => i.status === "pending").length;
   const noShow = real.filter((i) => i.status === "no_show").length;
   const revenue = appointments
     .filter((a) => a.status === "done" && a.type === "appointment")
@@ -100,9 +101,10 @@ export default async function TodayPage({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Randevu" value={String(real.length)} hint={`${done} tamamlandı`} />
         <Metric
-          label="Bekleyen"
-          value={String(real.filter((i) => i.status === "confirmed").length)}
-          hint="onaylı, henüz gelmedi"
+          label="Onay bekleyen"
+          value={String(pending)}
+          hint={pending > 0 ? "onay gerekiyor" : "bekleyen yok"}
+          tone={pending > 0 ? "warn" : undefined}
         />
         <Metric
           label="Gelmedi"

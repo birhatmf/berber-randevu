@@ -18,6 +18,7 @@ export type AppointmentItemData = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
+  pending: "Onay bekliyor",
   confirmed: "Onaylı",
   done: "Geldi",
   no_show: "Gelmedi",
@@ -39,7 +40,6 @@ export function AppointmentItem({
   showBarber?: boolean;
 }) {
   const isBlock = item.type === "block";
-  const isPast = new Date(item.end) < new Date();
 
   return (
     <li
@@ -50,7 +50,9 @@ export function AppointmentItem({
             ? "border-emerald-200 bg-emerald-50/40"
             : item.status === "no_show"
               ? "border-red-200 bg-red-50/40"
-              : "border-line bg-white"
+              : item.status === "pending"
+                ? "border-amber-300 bg-amber-50/50"
+                : "border-line bg-white"
       }`}
     >
       <div className="flex w-full items-center gap-3 sm:w-auto">
@@ -77,6 +79,26 @@ export function AppointmentItem({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
+        {!isBlock && item.status === "pending" && (
+          <>
+            <form action={setAppointmentStatus}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="status" value="confirmed" />
+              <button className="btn btn-sm btn-brass" title="Randevuyu onayla">
+                <CheckCircle size={15} weight="bold" aria-hidden="true" />
+                Onayla
+              </button>
+            </form>
+            <form action={setAppointmentStatus}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="status" value="cancelled" />
+              <button className="btn btn-sm btn-ghost" title="Talebi reddet">
+                Reddet
+              </button>
+            </form>
+          </>
+        )}
+
         {!isBlock && item.status === "confirmed" && (
           <>
             <form action={setAppointmentStatus}>
@@ -95,31 +117,24 @@ export function AppointmentItem({
                 Gelmedi
               </button>
             </form>
-            {isPast && (
-              <form action={setAppointmentStatus}>
-                <input type="hidden" name="id" value={item.id} />
-                <input type="hidden" name="status" value="cancelled" />
-                <button className="btn btn-sm btn-ghost">İptal</button>
-              </form>
-            )}
+            <form action={setAppointmentStatus}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="status" value="cancelled" />
+              <button className="btn btn-sm btn-ghost" title="Randevuyu iptal et">
+                İptal
+              </button>
+            </form>
           </>
         )}
 
-        {(item.status === "done" || item.status === "no_show") && (
-          <form action={setAppointmentStatus}>
-            <input type="hidden" name="id" value={item.id} />
-            <input type="hidden" name="status" value="confirmed" />
-            <button className="btn btn-sm btn-ghost">Geri al</button>
-          </form>
-        )}
-
-        {item.status === "cancelled" && (
-          <form action={setAppointmentStatus}>
-            <input type="hidden" name="id" value={item.id} />
-            <input type="hidden" name="status" value="confirmed" />
-            <button className="btn btn-sm btn-ghost">Geri al</button>
-          </form>
-        )}
+        {!isBlock &&
+          (item.status === "done" || item.status === "no_show" || item.status === "cancelled") && (
+            <form action={setAppointmentStatus}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="status" value="confirmed" />
+              <button className="btn btn-sm btn-ghost">Geri al</button>
+            </form>
+          )}
 
         {(isBlock || item.status === "cancelled") && (
           <form action={deleteAppointment}>

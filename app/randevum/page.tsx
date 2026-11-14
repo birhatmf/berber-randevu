@@ -13,6 +13,7 @@ import { CalendarDots, Clock, Scissors } from "@/components/icons";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
+  pending: "Onay bekliyor",
   confirmed: "Onaylı",
   done: "Tamamlandı",
   no_show: "Gelmedi",
@@ -78,7 +79,8 @@ export default async function MyAppointmentsPage() {
               <ul className="space-y-3">
                 {appointments.map((appointment) => {
                   const cancellable =
-                    appointment.status === "confirmed" && appointment.start > new Date();
+                    (appointment.status === "confirmed" || appointment.status === "pending") &&
+                    appointment.start > new Date();
                   return (
                     <li key={appointment.id} className="card p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">

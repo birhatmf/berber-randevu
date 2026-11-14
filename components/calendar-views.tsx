@@ -16,6 +16,7 @@ type Row = {
 };
 
 const STATUS_STYLE: Record<string, string> = {
+  pending: "border-l-[3px] border-l-amber-500 bg-amber-50 text-amber-950",
   confirmed: "border-l-[3px] border-l-indigo-500 bg-indigo-50 text-indigo-950",
   done: "border-l-[3px] border-l-emerald-600 bg-emerald-50 text-emerald-950",
   no_show: "border-l-[3px] border-l-red-600 bg-red-50 text-red-950",
