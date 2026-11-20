@@ -8,8 +8,8 @@ import { availableSlots, createAppointment, BookingError } from "@/lib/booking";
 import { normalizePhone } from "@/lib/phone";
 import { signPhone, verifyPhoneProof } from "@/lib/proof";
 import { dateTimeOf, timeOf } from "@/lib/time";
-import { sendOtp } from "@/lib/whatsapp";
-import { notifyCancelled, notifyNewAppointment } from "@/lib/notify";
+import { sendBookingConfirmation, sendOtp } from "@/lib/whatsapp";
+import { notifyAdminCancelled, notifyNewAppointment } from "@/lib/notify";
 import type { ActionState } from "./types";
 
 const PROOF_COOKIE = "randevu_proof";
@@ -46,7 +46,6 @@ export async function bookAppointment(_prev: ActionState, formData: FormData): P
       startMin: input.startMin,
       customerName: input.name,
       customerPhone: phone,
-      status: "pending",
       source: "online",
     });
 
@@ -65,8 +64,9 @@ export async function bookAppointment(_prev: ActionState, formData: FormData): P
       durationMin: detail?.service?.durationMin ?? null,
       start: appointment.start,
       source: "online",
-      status: appointment.status,
     });
+
+    await sendBookingConfirmation(phone, detail?.barber.name ?? "", dateTimeOf(appointment.start));
 
     revalidatePath("/panel");
     revalidatePath("/panel/takvim");
@@ -217,9 +217,9 @@ export async function cancelOwnAppointment(
   await db.appointment.update({ where: { id }, data: { status: "cancelled" } });
 
   if (detail) {
-    await notifyCancelled({
-      customerPhone: detail.customerPhone,
+    await notifyAdminCancelled({
       barberName: detail.barber.name,
+      customerName: detail.customerName,
       start: detail.start,
     });
   }

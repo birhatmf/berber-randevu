@@ -7,7 +7,7 @@ import { bookAppointment } from "@/app/actions/public";
 import type { ActionState } from "@/app/actions/types";
 import { formatMin, formatMoney } from "@/lib/time";
 import { formatPhone } from "@/lib/phone";
-import { ArrowLeft, ArrowRight, CheckCircle, Clock, PaperPlaneTilt, Scissors, User, WhatsappLogo } from "@/components/icons";
+import { ArrowLeft, ArrowRight, CheckCircle, Clock, Scissors, User, WhatsappLogo } from "@/components/icons";
 
 type Service = { id: string; name: string; durationMin: number; price: number };
 type Barber = { id: string; name: string; title: string | null };
@@ -27,14 +27,12 @@ export function BookingWizard({
   today,
   maxDays,
   phone,
-  telegramBot = "",
 }: {
   services: Service[];
   barbers: Barber[];
   today: string;
   maxDays: number;
   phone: string;
-  telegramBot?: string;
 }) {
   const [step, setStep] = useState(1);
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -79,12 +77,9 @@ export function BookingWizard({
     return (
       <div className="mx-auto max-w-lg text-center">
         <CheckCircle size={52} weight="duotone" className="mx-auto text-emerald-600" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-4xl">Talebin alındı</h1>
+        <h1 className="mt-4 font-display text-4xl">Randevun hazır</h1>
         <p className="mt-2 text-muted">
           {appt.name}, {appt.dateText} · {appt.barber}
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Randevun onay bekliyor; onaylandığında WhatsApp&apos;tan haber vereceğiz.
         </p>
 
         <div className="card mt-6 space-y-2 p-5 text-left text-sm">
@@ -102,26 +97,6 @@ export function BookingWizard({
             Randevumu gör
           </Link>
         </div>
-
-        {telegramBot && (
-          <div className="card mt-4 flex flex-col items-center gap-2 p-4 text-center">
-            <p className="flex items-center gap-1.5 text-sm font-medium">
-              <PaperPlaneTilt size={16} weight="bold" className="text-[#229ED9]" aria-hidden="true" />
-              Telegram&apos;dan da haber al
-            </p>
-            <p className="text-xs text-muted">
-              Bağlanınca onay ve iptal bildirimleri Telegram&apos;a gelir.
-            </p>
-            <a
-              href={`https://t.me/${telegramBot}?start=${appt.phone.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-outline"
-            >
-              Telegram&apos;ı bağla
-            </a>
-          </div>
-        )}
 
         <p className="mt-4 text-xs text-muted">
           Değişiklik için {phone} numarasını arayabilir veya WhatsApp&apos;tan yazabilirsiniz.

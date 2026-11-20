@@ -1,16 +1,19 @@
 import { db } from "./db";
 import { dateKey, formatDateLong, formatMoney, timeOf, todayKey } from "./time";
-import {
-  customerChatOf,
-  getTelegramConfig,
-  sendMessage,
-  type InlineButton,
-} from "./telegram";
+import { getTelegramConfig, sendMessage } from "./telegram";
 
 const DAY_MS = 86_400_000;
 
 function h(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function adminChatIds(): Promise<string[]> {
+  const config = await getTelegramConfig();
+  if (!config.enabled) return [];
+  const ids = new Set<string>();
+  if (config.ownerChatId) ids.add(config.ownerChatId.trim());
+  return [...ids];
 }
 
 export type NewAppointmentInfo = {
@@ -23,12 +26,15 @@ export type NewAppointmentInfo = {
   durationMin: number | null;
   start: Date;
   source: string;
-  status: string;
 };
 
-function newAppointmentHtml(info: NewAppointmentInfo): string {
+/** Yeni randevuyu işletme sahibine bildirir. */
+export async function notifyNewAppointment(info: NewAppointmentInfo): Promise<void> {
+  const targets = await adminChatIds();
+  if (targets.length === 0) return;
+
   const lines = [
-    info.status === "pending" ? "🆕 <b>Yeni randevu talebi</b>" : "📌 <b>Yeni randevu eklendi</b>",
+    "📌 <b>Yeni randevu</b>",
     "",
     `👤 ${h(info.customerName || "İsimsiz")}${info.customerPhone ? ` · ${h(info.customerPhone)}` : ""}`,
     `💈 ${h(info.barberName)}`,
@@ -36,89 +42,126 @@ function newAppointmentHtml(info: NewAppointmentInfo): string {
     `📅 <b>${h(formatDateLong(dateKey(info.start)))} · ${h(timeOf(info.start))}</b>`,
   ];
   if (info.source === "walkin") lines.push("🚶 Walk-in");
-  return lines.join("\n");
+
+  const html = lines.join("\n");
+  for (const chatId of targets) await sendMessage(chatId, html);
 }
 
-/**
- * Yeni randevu talebini ilgili berbere ve işletme sahibine bildirir.
- * Onay/red butonları yalnızca onay bekleyen (pending) randevularda eklenir.
- */
-export async function notifyNewAppointment(info: NewAppointmentInfo): Promise<void> {
-  const config = await getTelegramConfig();
-  if (!config.enabled) return;
+/** Müşteri kendi randevusunu iptal ettiğinde sahibi bilgilendirir. */
+export async function notifyAdminCancelled(info: {
+  customerName: string;
+  barberName: string;
+  start: Date;
+}): Promise<void> {
+  const targets = await adminChatIds();
+  if (targets.length === 0) return;
 
-  const barber = await db.user.findUnique({
-    where: { id: info.barberId },
-    select: { telegramChatId: true },
+  const html = [
+    "❌ <b>Müşteri randevuyu iptal etti</b>",
+    "",
+    `👤 ${h(info.customerName || "İsimsiz")}`,
+    `💈 ${h(info.barberName)}`,
+    `📅 ${h(formatDateLong(dateKey(info.start)))} · ${h(timeOf(info.start))}`,
+  ].join("\n");
+
+  for (const chatId of targets) await sendMessage(chatId, html);
+}
+
+/** Panelden onaylanan randevu için sahibe bilgi. */
+export async function notifyAdminConfirmed(info: {
+  customerName: string;
+  barberName: string;
+  start: Date;
+}): Promise<void> {
+  const targets = await adminChatIds();
+  if (targets.length === 0) return;
+
+  const html = [
+    "✅ <b>Randevu onaylandı</b>",
+    "",
+    `👤 ${h(info.customerName || "İsimsiz")}`,
+    `💈 ${h(info.barberName)}`,
+    `📅 ${h(formatDateLong(dateKey(info.start)))} · ${h(timeOf(info.start))}`,
+  ].join("\n");
+
+  for (const chatId of targets) await sendMessage(chatId, html);
+}
+
+// --- Gün listesi (/randevularim) ---
+
+const STATUS_LABEL: Record<string, string> = {
+  confirmed: "onaylı",
+  done: "geldi",
+  no_show: "gelmedi",
+  cancelled: "iptal",
+};
+
+export async function dayListHtml(
+  day: string,
+  barberId?: string,
+): Promise<{ html: string; count: number }> {
+  const start = new Date(Date.parse(day + "T00:00:00Z") - 3 * 3600_000);
+  const end = new Date(start.getTime() + DAY_MS);
+
+  const rows = await db.appointment.findMany({
+    where: {
+      start: { gte: start, lt: end },
+      status: { not: "cancelled" },
+      ...(barberId ? { barberId } : {}),
+    },
+    include: {
+      service: { select: { name: true, price: true } },
+      barber: { select: { name: true } },
+    },
+    orderBy: { start: "asc" },
   });
 
-  const targets = new Set<string>();
-  if (barber?.telegramChatId) targets.add(barber.telegramChatId.trim());
-  if (config.ownerChatId) targets.add(config.ownerChatId.trim());
+  const real = rows.filter((r) => r.type === "appointment");
+  const revenue = real
+    .filter((r) => r.status === "done")
+    .reduce((sum, r) => sum + (r.service?.price ?? 0), 0);
 
-  if (targets.size === 0) return;
-
-  const buttons: InlineButton[][] =
-    info.status === "pending"
-      ? [
-          [
-            { text: "✅ Onayla", callback_data: `ap:${info.id}` },
-            { text: "❌ Reddet", callback_data: `rj:${info.id}` },
-          ],
-        ]
-      : [];
-
-  const html = newAppointmentHtml(info);
-  for (const chatId of targets) {
-    await sendMessage(chatId, html, buttons.length ? buttons : undefined);
+  if (rows.length === 0) {
+    return {
+      count: 0,
+      html: [
+        `📋 <b>${h(formatDateLong(day))}</b>`,
+        "",
+        "Bu gün için randevu yok.",
+      ].join("\n"),
+    };
   }
-}
 
-export async function notifyConfirmed(info: {
-  customerPhone: string;
-  barberName: string;
-  serviceName: string | null;
-  start: Date;
-}): Promise<void> {
-  const config = await getTelegramConfig();
-  if (!config.enabled) return;
-  const chatId = await customerChatOf(info.customerPhone);
-  if (!chatId) return;
+  const lines = [
+    `📋 <b>${h(formatDateLong(day))}</b>`,
+    "",
+    `Toplam <b>${real.length}</b> randevu · ${rows.length - real.length} bloke`,
+  ];
+  if (revenue > 0) lines.push(`💰 Tahsil edilen: <b>${h(formatMoney(revenue))}</b>`);
 
-  await sendMessage(
-    chatId,
-    [
-      "✅ <b>Randevunuz onaylandı</b>",
-      "",
-      `💈 ${h(info.barberName)} · ${h(info.serviceName ?? "Hizmet")}`,
-      `📅 <b>${h(formatDateLong(dateKey(info.start)))} · ${h(timeOf(info.start))}</b>`,
-      "",
-      "<i>Değişiklik için dükkânı arayabilirsiniz.</i>",
-    ].join("\n"),
-  );
-}
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const list = groups.get(row.barber.name) ?? [];
+    list.push(row);
+    groups.set(row.barber.name, list);
+  }
 
-export async function notifyCancelled(info: {
-  customerPhone: string;
-  barberName: string;
-  start: Date;
-}): Promise<void> {
-  const config = await getTelegramConfig();
-  if (!config.enabled) return;
-  const chatId = await customerChatOf(info.customerPhone);
-  if (!chatId) return;
+  for (const [barberName, list] of groups) {
+    const realCount = list.filter((r) => r.type === "appointment").length;
+    lines.push("", `<b>💈 ${h(barberName)}</b> — ${realCount} randevu`);
+    for (const row of list) {
+      if (row.type === "block") {
+        lines.push(`  • ${timeOf(row.start)} — 🚫 ${h(row.note || "Mola")}`);
+        continue;
+      }
+      const status = STATUS_LABEL[row.status] ?? row.status;
+      const service = row.service?.name ? ` · ${h(row.service.name)}` : "";
+      const customer = h(row.customerName || "İsimsiz");
+      lines.push(`  • <b>${timeOf(row.start)}</b> ${customer}${service} <i>(${status})</i>`);
+    }
+  }
 
-  await sendMessage(
-    chatId,
-    [
-      "❌ <b>Randevunuz iptal edildi</b>",
-      "",
-      `💈 ${h(info.barberName)}`,
-      `📅 ${h(formatDateLong(dateKey(info.start)))} · ${h(timeOf(info.start))}`,
-      "",
-      "<i>Yeni randevu için sitemizi kullanabilirsiniz.</i>",
-    ].join("\n"),
-  );
+  return { html: lines.join("\n"), count: real.length };
 }
 
 export type DailySummary = {
@@ -217,23 +260,14 @@ export function summaryHtml(s: DailySummary): string {
   return lines.join("\n");
 }
 
-/** Günlük özeti sahibe (ve varsa tüm berberlere) gönderir. */
+/** Günlük özeti işletme sahibine gönderir. */
 export async function sendDailySummary(day = todayKey()): Promise<{ ok: boolean; recipients: number }> {
-  const config = await getTelegramConfig();
-  if (!config.enabled) return { ok: false, recipients: 0 };
+  const targets = await adminChatIds();
+  if (targets.length === 0) return { ok: false, recipients: 0 };
 
   const summary = await buildDailySummary(day);
   const html = summaryHtml(summary);
 
-  const targets = new Set<string>();
-  if (config.ownerChatId) targets.add(config.ownerChatId.trim());
-
-  const barbers = await db.user.findMany({
-    where: { role: "barber", active: true, telegramChatId: { not: null } },
-    select: { telegramChatId: true },
-  });
-  for (const b of barbers) if (b.telegramChatId) targets.add(b.telegramChatId.trim());
-
   for (const chatId of targets) await sendMessage(chatId, html);
-  return { ok: true, recipients: targets.size };
+  return { ok: true, recipients: targets.length };
 }

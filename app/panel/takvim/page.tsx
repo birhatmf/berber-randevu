@@ -152,7 +152,6 @@ export default async function CalendarPage({
       {view === "month" && <MonthGrid monthStart={monthStart} rows={rows} />}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
-        <Legend className="border-l-amber-500 bg-amber-50" label="Onay bekleyen" />
         <Legend className="border-l-indigo-500 bg-indigo-50" label="Onaylı" />
         <Legend className="border-l-emerald-600 bg-emerald-50" label="Geldi" />
         <Legend className="border-l-red-600 bg-red-50" label="Gelmedi" />

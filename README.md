@@ -62,7 +62,7 @@ Sitedeki tüm metinler ve medya `Setting` tablosunda tutulur; `lib/settings.ts` 
 - Hizmet süresi kapanışa sığmıyorsa o slot üretilmez.
 - Mola/izin = `Appointment(type: "block")`; aynı çakışma sorgusundan geçer.
 - Randevu yazımı transaction içinde çakışmayı tekrar kontrol eder (çift kayıt koruması).
-- Online randevu `pending` (onay bekliyor) olarak gelir; panelde onaylanınca `confirmed` olur ve müşteriye WhatsApp onayı gider. Berber `geldi / gelmedi / iptal` işaretler.
+- Online randevu anında `confirmed` olur; berber `geldi / gelmedi / iptal` işaretler.
 
 ## Telegram (bildirim)
 
@@ -70,14 +70,25 @@ Panelden yönetilir: `/panel/telegram` (sadece admin).
 
 | Bildirim | Kime | Ne zaman |
 |---|---|---|
-| Yeni randevu talebi + **Onayla/Reddet** butonu | İlgili berber + sahip | Online randevu düşünce |
-| Onay / iptal bilgisi | Müşteri (botu bağladıysa) | Randevu onaylanınca / iptal edilince |
-| Günlük özet (randevu, ciro, berber kırılımı, yarın) | Sahip + bağlı berberler | Her akşam 21:00 (İstanbul) |
+| Yeni randevu | Sahip | Randevu oluşunca |
+| Müşteri iptali / panel onayı | Sahip | İptal / onay anında |
+| Günlük özet (randevu, ciro, berber kırılımı, yarın) | Sahip | Her akşam 21:00 (İstanbul) |
+
+Bot **yalnızca işletme sahibine** açıktır; tanınmayan sohbetlere yanıt vermez, sadece kendi chat ID'sini gösterir.
+
+**Bot komutları** (botla olan sohbette):
+
+| Komut | İşlev |
+|---|---|
+| `/randevularim` | bugünün randevuları (berber bazlı) |
+| `/randevularim yarin` | yarının listesi |
+| `/randevularim 2026-11-25` | belirli bir gün (`25.11.2026` de olur) |
+| `/ozet` | günlük özeti hemen gönder |
+| `/yardim` | komut listesi |
 
 - Bot: Telegram'da `@BotFather` → `/newbot` ile token al, panele kaydet.
-- Herkes (sahip, berber, müşteri) bottan bir kez `/start` yazmalı — Telegram botları kendilerine hiç yazmamış birine mesaj atamaz.
-- Sahip/berber chat ID'si panelden girilir; müşteri ise randevu sonuç ekranındaki "Telegram'ı bağla" linkiyle (`https://t.me/<bot>?start=<telefon>`) otomatik bağlanır.
-- Onay/red butonlarının çalışması için panelde bir kez "Webhook'u kur" denir (secret otomatik üretilir).
+- Sahip bottan bir kez `/start` yazmalı — Telegram botları kendilerine hiç yazmamış birine mesaj atamaz.
+- Buton/komutların çalışması için panelde bir kez "Webhook'u kur" denir (secret otomatik üretilir).
 - Boş token ile mesajlar konsola yazılır (dry-run).
 
 Cron (`crontab -e`, 15 dakikada bir):
@@ -102,7 +113,7 @@ Anahtar yokken veya “WhatsApp mesajları aktif” kapalıyken mesajlar konsola
 
 | Şablon | Değişkenler | Kullanım |
 |---|---|---|
-| `randevu_onayi` | `{{1}}` berber, `{{2}}` tarih/saat | Randevu onaylanınca |
+| `randevu_onayi` | `{{1}}` berber, `{{2}}` tarih/saat | Randevu oluşturulunca |
 | `randevu_hatirlatma` | `{{1}}` tarih/saat + hizmet + berber | 24 saat ve 2 saat önce |
 | `otp_kodu` | `{{1}}` 6 haneli kod | `/randevum` doğrulaması |
 

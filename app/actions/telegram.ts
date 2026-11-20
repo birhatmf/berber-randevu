@@ -110,20 +110,3 @@ export async function sendSummaryNow(): Promise<ActionState> {
   }
   return { ok: true, message: `Özet ${result.recipients} kişiye gönderildi.` };
 }
-
-export async function saveBarberChat(formData: FormData): Promise<void> {
-  const user = await requireAdmin();
-  if (!user) return;
-
-  const barberId = String(formData.get("barberId") ?? "");
-  const chatId = String(formData.get("chatId") ?? "").trim();
-  if (!barberId) return;
-  if (chatId && !/^-?\d{5,}$/.test(chatId)) return;
-
-  await db.user.update({
-    where: { id: barberId },
-    data: { telegramChatId: chatId || null },
-  });
-
-  revalidatePath("/panel/telegram");
-}

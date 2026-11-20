@@ -10,7 +10,7 @@ import { normalizePhone } from "@/lib/phone";
 import { FIELDS } from "@/lib/settings";
 import { dateTimeOf } from "@/lib/time";
 import { sendBookingConfirmation } from "@/lib/whatsapp";
-import { notifyConfirmed, notifyNewAppointment } from "@/lib/notify";
+import { notifyAdminConfirmed, notifyNewAppointment } from "@/lib/notify";
 import type { ActionState } from "./types";
 
 const STATUSES = ["confirmed", "done", "no_show", "cancelled"] as const;
@@ -43,7 +43,7 @@ export async function setAppointmentStatus(formData: FormData) {
 
   await db.appointment.update({ where: { id }, data: { status } });
 
-  if (status === "confirmed" && appointment.status === "pending") {
+  if (status === "confirmed" && appointment.status !== "confirmed") {
     if (appointment.customerPhone) {
       await sendBookingConfirmation(
         appointment.customerPhone,
@@ -51,10 +51,9 @@ export async function setAppointmentStatus(formData: FormData) {
         dateTimeOf(appointment.start),
       );
     }
-    await notifyConfirmed({
-      customerPhone: appointment.customerPhone,
+    await notifyAdminConfirmed({
+      customerName: appointment.customerName,
       barberName: appointment.barber.name,
-      serviceName: null,
       start: appointment.start,
     });
   }
@@ -124,7 +123,6 @@ export async function addAppointment(_prev: ActionState, formData: FormData): Pr
       durationMin: detail?.service?.durationMin ?? null,
       start: created.start,
       source: created.source,
-      status: created.status,
     });
 
     refresh(input.date);

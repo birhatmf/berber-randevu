@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { dateKey, formatDateLong, timeOf } from "@/lib/time";
+import { addDays, dateKey, formatDateLong, timeOf, todayKey } from "@/lib/time";
 import {
   answerCallback,
   editMessage,
   escapeHtml as h,
   getTelegramConfig,
-  linkCustomerChat,
   sendMessage,
 } from "@/lib/telegram";
+import { dayListHtml } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -82,72 +82,120 @@ async function handleCallback(query: NonNullable<Update["callback_query"]>) {
     );
   }
 
-  const head =
-    status === "confirmed"
-      ? "✅ <b>Randevu onaylandı</b>"
-      : "❌ <b>Randevu reddedildi</b>";
-
   const body = [
-    head,
+    status === "confirmed" ? "✅ <b>Randevu onaylandı</b>" : "❌ <b>Randevu reddedildi</b>",
     "",
     `👤 ${h(appointment.customerName || "İsimsiz")}`,
     `💈 ${h(appointment.barber.name)} · ${h(appointment.service?.name ?? "Hizmet")}`,
     `📅 ${h(formatDateLong(dateKey(appointment.start)))} · ${h(timeOf(appointment.start))}`,
   ].join("\n");
 
-  if (chatId && messageId) {
-    await editMessage(String(chatId), messageId, body, []);
-  }
+  if (chatId && messageId) await editMessage(String(chatId), messageId, body, []);
   await answerCallback(query.id, status === "confirmed" ? "Onaylandı." : "Reddedildi.");
 }
 
 async function handleMessage(message: NonNullable<Update["message"]>) {
   const chatId = message.chat?.id;
   const text = (message.text ?? "").trim();
-  if (!chatId || !text) return;
+  if (!chatId) return;
 
-  if (text.startsWith("/start")) {
-    const payload = text.split(/\s+/)[1] ?? "";
+  const config = await getTelegramConfig();
+  const isAdmin =
+    Boolean(config.ownerChatId) && String(chatId) === config.ownerChatId.trim();
 
-    // Derin baglanti: /start <telefon>  -> musteri sohbetini numarasiyla eslestir
-    if (/^\+?\d{10,15}$/.test(payload)) {
-      const phone = payload.startsWith("+") ? payload : `+${payload}`;
-      await linkCustomerChat(phone, String(chatId));
-      await sendMessage(
-        String(chatId),
-        "🔗 <b>Telefonunuz bağlandı.</b>\nRandevunuz onaylandığında veya iptal edildiğinde buradan haber vereceğiz.",
-      );
-      return;
-    }
-
-    // Panelde chat ID'si kayitli bir berber mi?
-    const barber = await db.user.findFirst({
-      where: { telegramChatId: String(chatId) },
-      select: { name: true, role: true },
-    });
-
-    if (barber) {
+  // Bot admine ozel: taninmayan sohbetlere yalnizca kimlik bilgisi ver.
+  if (!isAdmin) {
+    if (text.startsWith("/start")) {
       await sendMessage(
         String(chatId),
         [
-          `👋 Merhaba <b>${h(barber.name)}</b>,`,
-          "bu sohbet berber panelinize bağlı. Yeni randevular ve akşam özeti buraya gelecek.",
+          "👋 Bu bot işletme sahibine özeldir.",
+          "",
+          "Yönetici iseniz bu kimliği panelde <b>Telegram → Sahip chat ID</b> alanına yapıştırın:",
+          "",
+          `<code>${chatId}</code>`,
         ].join("\n"),
       );
-      return;
     }
+    return;
+  }
 
+  const [rawCommand, ...args] = text.split(/\s+/);
+  const command = rawCommand.toLowerCase().replace(/@.*$/, "");
+
+  if (command === "/start" || command === "/yardim" || command === "/help") {
     await sendMessage(
       String(chatId),
       [
-        "👋 <b>Berber Randevu botu</b>",
+        "👋 <b>Berber Randevu — yönetici botu</b>",
         "",
-        "Bu kimliği yönetici panelinde <b>Telegram → Sahip chat ID</b> alanına yapıştırın:",
+        "<b>Komutlar</b>",
+        "/randevularim — bugünün randevuları",
+        "/randevularim yarin — yarının randevuları",
+        "/randevularim 2026-11-25 — belirli bir gün",
+        "/ozet — günlük özeti hemen gönder",
         "",
-        `<code>${chatId}</code>`,
-        "",
-        "<i>Müşteriler için: randevu sonuç ekranındaki “Telegram'ı bağla” düğmesini kullanın.</i>",
+        "Yeni randevular ve her akşam 21:00 özeti otomatik gelir.",
       ].join("\n"),
     );
+    return;
   }
+
+  if (command === "/randevularim" || command === "/randevular") {
+    await sendDayList(String(chatId), args[0]);
+    return;
+  }
+
+  if (command === "/ozet" || command === "/summary") {
+    const { sendDailySummary } = await import("@/lib/notify");
+    const result = await sendDailySummary();
+    if (result.recipients === 0) {
+      await sendMessage(String(chatId), "Gönderilemedi: bildirim ayarları eksik.");
+    }
+    return;
+  }
+
+  await sendMessage(String(chatId), "Komut anlaşılmadı. /yardim yazın.");
+}
+
+async function sendDayList(chatId: string, arg?: string) {
+  const day = resolveDay(arg);
+  if (!day) {
+    await sendMessage(
+      chatId,
+      "Tarihi anlayamadım.\nÖrnek: <code>/randevularim</code>, <code>/randevularim yarin</code>, <code>/randevularim 2026-11-25</code>",
+    );
+    return;
+  }
+
+  const { html, count } = await dayListHtml(day);
+  await sendMessage(chatId, html);
+
+  if (count > 0) {
+    await sendMessage(
+      chatId,
+      "İpucu: <code>/randevularim yarin</code> ile yarının listesini alabilirsiniz.",
+    );
+  }
+}
+
+function resolveDay(arg?: string): string | null {
+  if (!arg) return todayKey();
+  const value = arg.trim().toLowerCase();
+
+  if (value === "bugun" || value === "bugün" || value === "today") return todayKey();
+  if (value === "yarin" || value === "yarın" || value === "tomorrow") return addDays(todayKey(), 1);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(value + "T00:00:00Z");
+    if (!Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value) return value;
+    return null;
+  }
+
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+    const [dd, mm, yyyy] = value.split(".");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return null;
 }

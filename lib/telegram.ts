@@ -161,18 +161,3 @@ export async function setWebhook(url: string, secret: string): Promise<TelegramR
 export async function sendTest(chatId: string): Promise<TelegramResult> {
   return sendMessage(chatId, "✅ <b>Bağlantı çalışıyor.</b>\nBerber paneli test mesajı.");
 }
-
-/** Telefonu bir Telegram sohbetine bağlar (müşteri botu /start ile açtığında). */
-export async function linkCustomerChat(phone: string, chatId: string): Promise<void> {
-  await db.customerTelegram.upsert({
-    where: { phone },
-    update: { chatId },
-    create: { phone, chatId },
-  });
-}
-
-export async function customerChatOf(phone: string): Promise<string | null> {
-  if (!phone) return null;
-  const row = await db.customerTelegram.findUnique({ where: { phone } });
-  return row?.chatId ?? null;
-}

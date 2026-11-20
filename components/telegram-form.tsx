@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import {
   clearTelegramToken,
-  saveBarberChat,
   saveTelegramSettings,
   sendSummaryNow,
   sendTelegramTest,
@@ -20,7 +19,6 @@ type Props = {
   webhookSecretSet: boolean;
   webhookUrl: string;
   appUrl: string;
-  barbers: { id: string; name: string; chatId: string | null }[];
 };
 
 function Result({ tone, state }: { tone: "ok" | "error"; state: ActionState }) {
@@ -198,40 +196,33 @@ export function TelegramForm(props: Props) {
       </form>
 
       <section className="card p-5">
-        <h2 className="font-display text-xl">Berber bildirimleri</h2>
+        <h2 className="font-display text-xl">Bot komutları</h2>
         <p className="mt-1 text-sm text-muted">
-          Her berber bottan <code>/start</code> yazıp chat ID&apos;sini alsın, buraya girin. Yeni randevu
-          önce ilgili berbere, ayrıca işletme sahibine gider.
+          Bot yalnızca sahibe (yukarıdaki chat ID) açıktır; başka sohbetlere yanıt vermez. Bu komutları
+          botla olan sohbette yazın:
         </p>
-
-        {props.barbers.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Aktif berber yok.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-line">
-            {props.barbers.map((barber) => (
-              <li key={barber.id}>
-                <form action={saveBarberChat} className="flex flex-wrap items-end gap-2 py-3">
-                  <input type="hidden" name="barberId" value={barber.id} />
-                  <div className="min-w-[10rem] flex-1">
-                    <p className="text-sm font-medium">{barber.name}</p>
-                    <p className="text-xs text-muted">
-                      {barber.chatId ? `Bağlı: ${barber.chatId}` : "Henüz bağlı değil"}
-                    </p>
-                  </div>
-                  <input
-                    name="chatId"
-                    className="field w-44"
-                    defaultValue={barber.chatId ?? ""}
-                    placeholder="chat ID"
-                    inputMode="numeric"
-                    aria-label={`${barber.name} chat ID`}
-                  />
-                  <button className="btn btn-outline btn-sm">Kaydet</button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul className="mt-3 divide-y divide-line text-sm">
+          <li className="flex flex-wrap items-baseline gap-2 py-2">
+            <code className="rounded bg-stone-100 px-1.5 py-0.5">/randevularim</code>
+            <span className="text-muted">bugünün randevuları</span>
+          </li>
+          <li className="flex flex-wrap items-baseline gap-2 py-2">
+            <code className="rounded bg-stone-100 px-1.5 py-0.5">/randevularim yarin</code>
+            <span className="text-muted">yarının randevuları</span>
+          </li>
+          <li className="flex flex-wrap items-baseline gap-2 py-2">
+            <code className="rounded bg-stone-100 px-1.5 py-0.5">/randevularim 2026-11-25</code>
+            <span className="text-muted">belirli bir gün</span>
+          </li>
+          <li className="flex flex-wrap items-baseline gap-2 py-2">
+            <code className="rounded bg-stone-100 px-1.5 py-0.5">/ozet</code>
+            <span className="text-muted">günlük özeti hemen gönder</span>
+          </li>
+          <li className="flex flex-wrap items-baseline gap-2 py-2">
+            <code className="rounded bg-stone-100 px-1.5 py-0.5">/yardim</code>
+            <span className="text-muted">komut listesi</span>
+          </li>
+        </ul>
       </section>
     </div>
   );
