@@ -14,6 +14,7 @@ export {
   InstagramLogo,
   List,
   MapPin,
+  PaperPlaneTilt,
   Plus,
   Scissors,
   SignOut,

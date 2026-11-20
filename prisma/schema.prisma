@@ -18,6 +18,7 @@ model User {
   bio          String?
   photo        String?
   active       Boolean  @default(true)
+  telegramChatId String?
   createdAt    DateTime @default(now())
 
   workHours    WorkHours[]
@@ -91,6 +92,13 @@ model Media {
   mime      String
   ext       String
   size      Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerTelegram {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  chatId    String   @unique
   createdAt DateTime @default(now())
 }
 

@@ -7,7 +7,7 @@ import { bookAppointment } from "@/app/actions/public";
 import type { ActionState } from "@/app/actions/types";
 import { formatMin, formatMoney } from "@/lib/time";
 import { formatPhone } from "@/lib/phone";
-import { ArrowLeft, ArrowRight, CheckCircle, Clock, Scissors, User, WhatsappLogo } from "@/components/icons";
+import { ArrowLeft, ArrowRight, CheckCircle, Clock, PaperPlaneTilt, Scissors, User, WhatsappLogo } from "@/components/icons";
 
 type Service = { id: string; name: string; durationMin: number; price: number };
 type Barber = { id: string; name: string; title: string | null };
@@ -27,12 +27,14 @@ export function BookingWizard({
   today,
   maxDays,
   phone,
+  telegramBot = "",
 }: {
   services: Service[];
   barbers: Barber[];
   today: string;
   maxDays: number;
   phone: string;
+  telegramBot?: string;
 }) {
   const [step, setStep] = useState(1);
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -100,6 +102,27 @@ export function BookingWizard({
             Randevumu gör
           </Link>
         </div>
+
+        {telegramBot && (
+          <div className="card mt-4 flex flex-col items-center gap-2 p-4 text-center">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <PaperPlaneTilt size={16} weight="bold" className="text-[#229ED9]" aria-hidden="true" />
+              Telegram&apos;dan da haber al
+            </p>
+            <p className="text-xs text-muted">
+              Bağlanınca onay ve iptal bildirimleri Telegram&apos;a gelir.
+            </p>
+            <a
+              href={`https://t.me/${telegramBot}?start=${appt.phone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-outline"
+            >
+              Telegram&apos;ı bağla
+            </a>
+          </div>
+        )}
+
         <p className="mt-4 text-xs text-muted">
           Değişiklik için {phone} numarasını arayabilir veya WhatsApp&apos;tan yazabilirsiniz.
         </p>

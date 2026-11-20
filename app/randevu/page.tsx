@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { todayKey } from "@/lib/time";
+import { getTelegramConfig } from "@/lib/telegram";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter, shopHoursLines } from "@/components/site-footer";
 import { BookingWizard } from "@/components/booking-wizard";
@@ -10,7 +11,7 @@ import { Scissors } from "@/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function BookingPage() {
-  const [settings, services, barbers] = await Promise.all([
+  const [settings, services, barbers, telegram] = await Promise.all([
     getSettings(),
     db.service.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     db.user.findMany({
@@ -18,6 +19,7 @@ export default async function BookingPage() {
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, title: true, workHours: true },
     }),
+    getTelegramConfig(),
   ]);
 
   const maxDays = Math.max(1, Number(settings.maxDays) || 60);
@@ -52,6 +54,7 @@ export default async function BookingPage() {
             today={todayKey()}
             maxDays={maxDays}
             phone={settings.phone}
+            telegramBot={telegram.enabled ? telegram.botUsername : ""}
           />
         )}
       </main>

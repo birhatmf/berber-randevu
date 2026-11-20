@@ -64,6 +64,31 @@ Sitedeki tüm metinler ve medya `Setting` tablosunda tutulur; `lib/settings.ts` 
 - Randevu yazımı transaction içinde çakışmayı tekrar kontrol eder (çift kayıt koruması).
 - Online randevu `pending` (onay bekliyor) olarak gelir; panelde onaylanınca `confirmed` olur ve müşteriye WhatsApp onayı gider. Berber `geldi / gelmedi / iptal` işaretler.
 
+## Telegram (bildirim)
+
+Panelden yönetilir: `/panel/telegram` (sadece admin).
+
+| Bildirim | Kime | Ne zaman |
+|---|---|---|
+| Yeni randevu talebi + **Onayla/Reddet** butonu | İlgili berber + sahip | Online randevu düşünce |
+| Onay / iptal bilgisi | Müşteri (botu bağladıysa) | Randevu onaylanınca / iptal edilince |
+| Günlük özet (randevu, ciro, berber kırılımı, yarın) | Sahip + bağlı berberler | Her akşam 21:00 (İstanbul) |
+
+- Bot: Telegram'da `@BotFather` → `/newbot` ile token al, panele kaydet.
+- Herkes (sahip, berber, müşteri) bottan bir kez `/start` yazmalı — Telegram botları kendilerine hiç yazmamış birine mesaj atamaz.
+- Sahip/berber chat ID'si panelden girilir; müşteri ise randevu sonuç ekranındaki "Telegram'ı bağla" linkiyle (`https://t.me/<bot>?start=<telefon>`) otomatik bağlanır.
+- Onay/red butonlarının çalışması için panelde bir kez "Webhook'u kur" denir (secret otomatik üretilir).
+- Boş token ile mesajlar konsola yazılır (dry-run).
+
+Cron (`crontab -e`, 15 dakikada bir):
+
+```bash
+*/15 * * * * curl -s -H "x-cron-secret: $CRON_SECRET" https://<domain>/api/cron/daily-summary
+*/15 * * * * curl -s -H "x-cron-secret: $CRON_SECRET" https://<domain>/api/cron/reminders
+```
+
+Özet endpoint'i İstanbul saatine göre 21:00 penceresini kendi seçer ve aynı gün ikinci kez göndermez; `?force=1` ile test edilebilir.
+
 ## WhatsApp (opsiyonel)
 
 **Panelden yönetim:** `/panel/whatsapp` (sadece admin). Telefon numarası ID, erişim anahtarı, Business Account ID, webhook doğrulama anahtarı, Graph API sürümü ve üç şablon adı buradan girilir. Değerler `Setting` tablosunda tutulur; `.env` yalnızca boş alanlar için yedektir.

@@ -10,6 +10,7 @@ import { normalizePhone } from "@/lib/phone";
 import { FIELDS } from "@/lib/settings";
 import { dateTimeOf } from "@/lib/time";
 import { sendBookingConfirmation } from "@/lib/whatsapp";
+import { notifyConfirmed, notifyNewAppointment } from "@/lib/notify";
 import type { ActionState } from "./types";
 
 const STATUSES = ["confirmed", "done", "no_show", "cancelled"] as const;
@@ -42,12 +43,20 @@ export async function setAppointmentStatus(formData: FormData) {
 
   await db.appointment.update({ where: { id }, data: { status } });
 
-  if (status === "confirmed" && appointment.status === "pending" && appointment.customerPhone) {
-    await sendBookingConfirmation(
-      appointment.customerPhone,
-      appointment.barber.name,
-      dateTimeOf(appointment.start),
-    );
+  if (status === "confirmed" && appointment.status === "pending") {
+    if (appointment.customerPhone) {
+      await sendBookingConfirmation(
+        appointment.customerPhone,
+        appointment.barber.name,
+        dateTimeOf(appointment.start),
+      );
+    }
+    await notifyConfirmed({
+      customerPhone: appointment.customerPhone,
+      barberName: appointment.barber.name,
+      serviceName: null,
+      start: appointment.start,
+    });
   }
 
   refresh();
@@ -90,7 +99,7 @@ export async function addAppointment(_prev: ActionState, formData: FormData): Pr
   if (input.phone && !phone) return { error: "Telefon numarası geçersiz." };
 
   try {
-    await createAppointment({
+    const created = await createAppointment({
       barberId: input.barberId,
       serviceId: input.serviceId,
       date: input.date,
@@ -99,6 +108,25 @@ export async function addAppointment(_prev: ActionState, formData: FormData): Pr
       customerPhone: phone ?? "",
       source: phone ? "manual" : "walkin",
     });
+
+    const detail = await db.appointment.findUnique({
+      where: { id: created.id },
+      include: { service: { select: { name: true, durationMin: true } }, barber: { select: { name: true } } },
+    });
+
+    await notifyNewAppointment({
+      id: created.id,
+      barberId: created.barberId,
+      barberName: detail?.barber.name ?? "",
+      customerName: created.customerName,
+      customerPhone: created.customerPhone,
+      serviceName: detail?.service?.name ?? null,
+      durationMin: detail?.service?.durationMin ?? null,
+      start: created.start,
+      source: created.source,
+      status: created.status,
+    });
+
     refresh(input.date);
     return { ok: true, message: "Randevu eklendi." };
   } catch (error) {

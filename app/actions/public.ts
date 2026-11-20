@@ -9,6 +9,7 @@ import { normalizePhone } from "@/lib/phone";
 import { signPhone, verifyPhoneProof } from "@/lib/proof";
 import { dateTimeOf, timeOf } from "@/lib/time";
 import { sendOtp } from "@/lib/whatsapp";
+import { notifyCancelled, notifyNewAppointment } from "@/lib/notify";
 import type { ActionState } from "./types";
 
 const PROOF_COOKIE = "randevu_proof";
@@ -52,6 +53,19 @@ export async function bookAppointment(_prev: ActionState, formData: FormData): P
     const detail = await db.appointment.findUnique({
       where: { id: appointment.id },
       include: { service: true, barber: { select: { name: true } } },
+    });
+
+    await notifyNewAppointment({
+      id: appointment.id,
+      barberId: appointment.barberId,
+      barberName: detail?.barber.name ?? "",
+      customerName: input.name,
+      customerPhone: phone,
+      serviceName: detail?.service?.name ?? null,
+      durationMin: detail?.service?.durationMin ?? null,
+      start: appointment.start,
+      source: "online",
+      status: appointment.status,
     });
 
     revalidatePath("/panel");
@@ -195,7 +209,21 @@ export async function cancelOwnAppointment(
     return { error: "Geçmiş randevu iptal edilemez." };
   }
 
+  const detail = await db.appointment.findUnique({
+    where: { id },
+    include: { barber: { select: { name: true } } },
+  });
+
   await db.appointment.update({ where: { id }, data: { status: "cancelled" } });
+
+  if (detail) {
+    await notifyCancelled({
+      customerPhone: detail.customerPhone,
+      barberName: detail.barber.name,
+      start: detail.start,
+    });
+  }
+
   revalidatePath("/randevum");
   revalidatePath("/panel");
   revalidatePath("/panel/takvim");

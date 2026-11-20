@@ -2,13 +2,14 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { customerAppointments, customerProfile, signOutCustomer } from "@/app/actions/public";
 import { getSettings } from "@/lib/settings";
+import { getTelegramConfig } from "@/lib/telegram";
 import { formatMoney, timeOf } from "@/lib/time";
 import { formatPhone } from "@/lib/phone";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter, shopHoursLines } from "@/components/site-footer";
 import { OtpForm } from "@/components/otp-form";
 import { CancelButton } from "@/components/cancel-button";
-import { CalendarDots, Clock, Scissors } from "@/components/icons";
+import { CalendarDots, Clock, PaperPlaneTilt, Scissors } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function MyAppointmentsPage() {
-  const [phone, settings, barber] = await Promise.all([
+  const [phone, settings, telegram, barber] = await Promise.all([
     customerProfile(),
     getSettings(),
+    getTelegramConfig(),
     db.user.findFirst({
       where: { role: "barber", active: true },
       orderBy: { createdAt: "asc" },
@@ -122,6 +124,28 @@ export default async function MyAppointmentsPage() {
                 Dükkânı ara
               </a>
             </div>
+
+            {telegram.enabled && telegram.botUsername && (
+              <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <PaperPlaneTilt size={16} weight="bold" className="text-[#229ED9]" aria-hidden="true" />
+                    Telegram bildirimleri
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Onay ve iptal haberleri Telegram&apos;a gelsin.
+                  </p>
+                </div>
+                <a
+                  href={`https://t.me/${telegram.botUsername}?start=${phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-outline"
+                >
+                  Bağla
+                </a>
+              </div>
+            )}
           </div>
         )}
       </main>
